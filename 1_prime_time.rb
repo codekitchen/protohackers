@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby --yjit
+require 'async'
 require 'socket'
 require 'json'
 require 'prime'
@@ -40,11 +41,13 @@ def handle sock, conn
 end
 
 def server
-  svr = TCPServer.new CONFIG['bind-port']
-  loop do
-    Thread.new(svr.accept) do |sock|
-      conn = $mon.connection
-      handle sock, conn
+  Async do
+    svr = TCPServer.new CONFIG['bind-port']
+    loop do
+      Async(svr.accept) do |_,sock|
+        conn = $mon.connection
+        handle sock, conn
+      end
     end
   end
 end

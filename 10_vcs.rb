@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby --yjit
+require 'async'
 require 'socket'
 
 require_relative 'lib/config'
@@ -47,12 +48,11 @@ class Handler
     conn.puts "ERR #{e.message}"
   end
 end
-$handler = Handler.new
 
-def handle conn
+def handle conn, handler
   loop do
     conn.puts 'READY'
-    $handler.process(conn)
+    handler.process(conn)
   end
 rescue EOFError, IOError, Errno::EPIPE, Errno::ECONNRESET
   # bye
@@ -64,13 +64,16 @@ ensure
 end
 
 def server
-  svr = TCPServer.new CONFIG['bind-port']
-  puts "listening on #{CONFIG['bind-port']}"
-  loop do
-    Thread.new(svr.accept) do |sock|
-      conn = $mon.connection
-      conn.sock = sock
-      handle conn
+  Async do
+    handler = Handler.new
+    svr = TCPServer.new CONFIG['bind-port']
+    puts "listening on #{CONFIG['bind-port']}"
+    loop do
+      Async(svr.accept) do |_,sock|
+        conn = $mon.connection
+        conn.sock = sock
+        handle conn, handler
+      end
     end
   end
 end

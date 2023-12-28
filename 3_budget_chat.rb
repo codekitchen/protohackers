@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby --yjit
+require 'async'
+require 'async/queue'
 require 'socket'
 
 require_relative 'lib/config'
@@ -14,15 +16,15 @@ class ChatRoom
   attr_reader :users
 
   def initialize
-    @q = Thread::Queue.new
+    @q = Async::Queue.new
     @users = {}
   end
 
   def <<(msg) = @q << msg
 
   def run
-    loop do
-      case @q.pop
+    @q.each do |msg|
+      case msg
       in [:subscribe, username, subscriber]
         join_msg = format(JOINED.sample, username:)
         @users.each { _2.(join_msg) }
@@ -42,43 +44,64 @@ class ChatRoom
     end
   end
 end
-$chat = ChatRoom.new
-Thread.new { $chat.run }
 
-def handle conn
+def handle conn, room
   conn.puts 'heyo. what should we call you?'
-  username = conn.gets.chomp
+  username = conn.gets&.chomp
   unless username =~ /^[a-zA-Z0-9]{1,32}$/
     conn.puts 'what kind of name is that? bye'
     return
   end
   conn.got_username(username)
-  # not remotely thread-safe, but whatevs
-  if $chat.users.key?(username)
+
+  # TODO: race condition
+  if room.users.key?(username)
     conn.puts "nuh uh, #{username} is already here!"
     return
   end
-  cb = ->(msg) { conn.puts msg rescue nil }
-  $chat << [:subscribe, username, cb]
-  loop do
-    msg = conn.gets
-    $chat << [:send, username, msg]
+
+  q = Async::Queue.new
+  cb = ->(msg) { q << [room, msg] }
+  room << [:subscribe, username, cb]
+  # read from socket in separate task
+  Async { gets_to_queue conn, q }
+
+  q.each do |from, msg|
+    case from
+    in ^room
+      conn.puts msg
+    in ^conn
+      break if !msg # connection closed
+      room << [:send, username, msg]
+    end
   end
-rescue EOFError
-  # bye
 ensure
-  $chat << [:leave, username] if cb
+  room << [:leave, username] if cb
   conn.close
 end
 
-def server
-  svr = TCPServer.new CONFIG['bind-port']
-  puts "listening on #{CONFIG['bind-port']}"
+def gets_to_queue(sock, q)
   loop do
-    Thread.new(svr.accept) do |sock|
-      conn = $mon.connection
-      conn.sock = sock
-      handle conn
+    msg = sock.gets
+    break if !msg
+    q << [sock, msg]
+  end
+ensure
+  q << [sock, nil]
+end
+
+def server
+  Async do
+    room = ChatRoom.new
+    Async { room.run }
+    svr = TCPServer.new CONFIG['bind-port']
+    puts "listening on #{CONFIG['bind-port']}"
+    loop do
+      Async(svr.accept) do |_,sock|
+        conn = $mon.connection
+        conn.sock = sock
+        handle conn, room
+      end
     end
   end
 end
@@ -97,7 +120,7 @@ Connection = Struct.new(:id,:username,:status,:messages,:sock) do
   end
 
   def gets
-    sock.readline.tap { add_message("> #{_1}") }
+    sock.gets.tap { add_message("> #{_1}") }
   end
 
   def add_message(msg)

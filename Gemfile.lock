@@ -2,12 +2,22 @@ GEM
   remote: https://rubygems.org/
   specs:
     array_include_methods (1.4.0)
+    async (2.6.5)
+      console (~> 1.10)
+      fiber-annotation
+      io-event (~> 1.1)
+      timers (~> 4.1)
     awesome_print (1.9.2)
     chunky_png (1.4.0)
     color (1.8)
+    console (1.23.3)
+      fiber-annotation
+      fiber-local
     csv (3.2.8)
     equalizer (0.0.11)
     facets (3.1.0)
+    fiber-annotation (0.2.0)
+    fiber-local (1.0.0)
     glimmer (2.7.4)
       array_include_methods (~> 1.4.0)
       facets (>= 3.1.0, < 4.0.0)
@@ -25,6 +35,8 @@ GEM
       rouge (>= 3.26.0, < 4.0.0)
       super_module (~> 1.4.1)
       text-table (>= 1.2.4, < 2.0.0)
+    io-event (1.4.0)
+    libui (0.1.2.pre)
     libui (0.1.2.pre-arm64-darwin)
     matrix (0.4.2)
     method_source (1.0.0)
@@ -45,6 +57,7 @@ GEM
     super_module (1.4.1)
       method_source (>= 0.8.2, < 1.1.0)
     text-table (1.2.4)
+    timers (4.3.5)
     tty-color (0.6.0)
     tty-cursor (0.7.1)
     tty-prompt (0.23.1)
@@ -62,6 +75,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  async (~> 2.6)
   csv
   glimmer-dsl-libui
   minitest

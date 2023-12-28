@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby --yjit
+require 'async'
 require 'socket'
 require 'yaml'
 CONFIG = YAML.load_file 'config.yml'
@@ -14,9 +15,11 @@ def handle conn
   puts "connection closed"
 end
 
-svr = TCPServer.new port
+Async do
+  svr = TCPServer.new port
 
-loop do
-  s = svr.accept
-  Thread.new { handle s }
+  loop do
+    s = svr.accept
+    Async { handle s }
+  end
 end
