@@ -1,7 +1,7 @@
 require "minitest/autorun"
 require_relative 'sparse_array'
 
-class TestSparseArray < Minitest::Test
+class SparseArrayTest < Minitest::Test
   def setup
     @a = SparseArray.new
     @a[17] = 8
