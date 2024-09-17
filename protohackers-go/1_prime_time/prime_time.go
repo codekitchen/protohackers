@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"os"
 	"protohackers-go/line_server"
 )
@@ -40,8 +40,6 @@ func isPrime(n float64) bool {
 var errorResponse = []byte("go away")
 
 func handleLine(line []byte) []byte {
-	fmt.Printf("got `%s`\n", line)
-
 	var msg request
 	err := json.Unmarshal(line, &msg)
 	if err == nil && msg.Method == "isPrime" && msg.Number != nil {
@@ -55,10 +53,11 @@ func handleLine(line []byte) []byte {
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	ctx := context.Background()
 	err := line_server.ListenAndServe(ctx, ":1337", handleLine)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		slog.Error("Failed to start server", "error", err)
 		os.Exit(1)
 	}
 }
