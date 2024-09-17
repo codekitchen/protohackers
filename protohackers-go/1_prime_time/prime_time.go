@@ -44,17 +44,14 @@ func handleLine(line []byte) []byte {
 
 	var msg request
 	err := json.Unmarshal(line, &msg)
-	if err != nil || msg.Method != "isPrime" || msg.Number == nil {
-		return errorResponse
+	if err == nil && msg.Method == "isPrime" && msg.Number != nil {
+		resMsg, err := json.Marshal(response{Method: "isPrime", IsPrime: isPrime(*msg.Number)})
+		if err == nil {
+			return resMsg
+		}
 	}
 
-	res := response{Method: "isPrime", IsPrime: isPrime(*msg.Number)}
-
-	resMsg, err := json.Marshal(res)
-	if err != nil {
-		return errorResponse
-	}
-	return resMsg
+	return errorResponse
 }
 
 func main() {
