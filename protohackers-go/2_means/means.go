@@ -8,53 +8,22 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	protohackersgo "protohackers-go"
 )
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	err := ListenAndServe(context.Background(), ":1337")
+	err := protohackersgo.ListenAndServe(context.Background(), ":1337", handleConn)
 	if err != nil {
 		slog.Error("Failed to start server", "error", err)
 		os.Exit(1)
 	}
 }
 
-func ListenAndServe(ctx context.Context, addr string) error {
-	logger := slog.Default()
-
-	srv, err := net.Listen("tcp", addr)
-	if err != nil {
-		logger.Error("Failed to start server", "error", err)
-		return err
-	}
-	defer srv.Close()
-
-	logger.Info("Server started", "address", addr)
-
-	go func() {
-		<-ctx.Done()
-		logger.Info("Shutting down server")
-		srv.Close()
-	}()
-
-	for {
-		c, err := srv.Accept()
-		if errors.Is(err, net.ErrClosed) {
-			logger.Info("Server closed")
-			return nil
-		}
-		if err != nil {
-			logger.Error("Failed to accept connection", "error", err)
-			return err
-		}
-		logger.Info("New connection accepted", "remote_addr", c.RemoteAddr())
-		go handleConn(ctx, c, logger)
-	}
-}
-
 func handleConn(_ context.Context, c net.Conn, logger *slog.Logger) {
 	defer c.Close()
 	logger = logger.With("remote_addr", c.RemoteAddr())
+	logger.Info("New connection accepted")
 	s := session{}
 
 	for {
@@ -80,34 +49,6 @@ func handleConn(_ context.Context, c net.Conn, logger *slog.Logger) {
 		}
 	}
 	logger.Info("Connection closed")
-}
-
-type price struct {
-	timestamp int32
-	price     int32
-}
-
-type session struct {
-	prices []price
-}
-
-func (s *session) insert(timestamp, val int32) {
-	s.prices = append(s.prices, price{timestamp, val})
-}
-
-func (s *session) query(min, max int32) int32 {
-	var sum int64 = 0
-	var count int64 = 0
-	for _, p := range s.prices {
-		if p.timestamp >= min && p.timestamp <= max {
-			sum += int64(p.price)
-			count++
-		}
-	}
-	if count > 0 {
-		return int32(sum / count)
-	}
-	return 0
 }
 
 type request struct {
